@@ -12,6 +12,13 @@ const publicKeyTu = 'chiavepubblicatu123';
 const privateKeyTu = 'chiaveprivatatu456';
 const publicKeyGemini = 'chiavepubblicagemini789';
 const privateKeyGemini = 'chiaveprivatagemini012';
+// Generazione delle chiavi RSA (da fare una sola volta per utente - **QUESTO È SOLO UN ESEMPIO DI GENERAZIONE IN-BROWSER A SCOPO DI TEST! MAI FARLO IN UN'APPLICAZIONE REALE!**)
+const keyPair = KJUR.crypto.KeyPair.genKeyPair('RSA', 2048); // Genera una coppia di chiavi RSA a 2048 bit
+const publicKeyTuRSA = keyPair.getPublicKey();    // Ottiene la chiave pubblica (formato JWK)
+const privateKeyTuRSA = keyPair.getPrivateKey();  // Ottiene la chiave privata (formato PKCS8)
+
+const publicKeyGeminiRSA = KJUR.crypto.KeyPair.genKeyPair('RSA', 2048).getPublicKey(); // Genero anche le mie chiavi (INSECURE!)
+const privateKeyGeminiRSA = KJUR.crypto.KeyPair.genKeyPair('RSA', 2048).getPrivateKey();
 
 // Funzioni per la crittografia (esempio concettuale con AES - da sostituire con chiave pubblica)
 function criptaMessaggio(messaggio, chiavePubblica) {
