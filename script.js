@@ -15,21 +15,15 @@ const privateKeyGemini = 'chiaveprivatagemini012';
 
 // Funzioni per la crittografia (esempio concettuale con AES - da sostituire con chiave pubblica)
 function criptaMessaggio(messaggio, chiavePubblica) {
-  const ciphertext = CryptoJS.AES.encrypt(messaggio, chiavePubblica).toString();
-  return ciphertext;
+    const ciphertext = CryptoJS.AES.encrypt(messaggio, chiavePubblica).toString();
+    return ciphertext;
 }
 
 function decriptaMessaggio(ciphertext, chiavePrivata) {
-  const bytes = CryptoJS.AES.decrypt(ciphertext, chiavePrivata);
-  const plaintext = bytes.toString(CryptoJS.enc.Utf8);
-  return plaintext;
+    const bytes = CryptoJS.AES.decrypt(ciphertext, chiavePrivata);
+    const plaintext = bytes.toString(CryptoJS.enc.Utf8);
+    return plaintext;
 }
-
-// ... (il resto del tuo codice: event listener, sendMessage, displayMessage, generateFakeResponse)
-
-const chatArea = document.getElementById('chat-area');
-const messageInput = document.getElementById('message-input');
-const sendButton = document.getElementById('send-button');
 
 sendButton.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', function(event) {
@@ -53,10 +47,28 @@ function sendMessage() {
     }
 }
 
-function displayMessage(text, className) {
+function displayMessage(text, className, sender) { // Ho aggiunto 'sender' qui
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message', className);
-    messageDiv.textContent = text;
+    const senderSpan = document.createElement('span');
+    senderSpan.classList.add('sender');
+    senderSpan.textContent = sender + ': ';
+    messageDiv.appendChild(senderSpan);
+    messageDiv.appendChild(document.createTextNode(text));
     chatArea.appendChild(messageDiv);
     chatArea.scrollTop = chatArea.scrollHeight; // Scrolla in basso per mostrare l'ultimo messaggio
+}
+
+function generateFakeResponse(inputText) {
+    // Una semplice logica per generare risposte finte basate sull'input
+    inputText = inputText.toLowerCase();
+    if (inputText.includes('ciao') || inputText.includes('hey')) {
+        return 'Ciao anche a te!';
+    } else if (inputText.includes('come stai')) {
+        return 'Tutto bene, grazie!';
+    } else if (inputText.includes('amore')) {
+        return 'Ti voglio bene!';
+    } else {
+        return 'Ricevuto!';
+    }
 }
