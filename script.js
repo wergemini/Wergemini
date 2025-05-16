@@ -7,6 +7,12 @@ const sendButton = document.getElementById('send-button');
 const myNickname = 'Tu';
 const otherNickname = 'Gemini';
 
+// **ATTENZIONE: QUESTE CHIAVI SONO SOLO PER TEST E SONO INSECURE!**
+const publicKeyTu = 'chiavepubblicatu123';
+const privateKeyTu = 'chiaveprivatatu456';
+const publicKeyGemini = 'chiavepubblicagemini789';
+const privateKeyGemini = 'chiaveprivatagemini012';
+
 // Funzioni per la crittografia (esempio concettuale con AES - da sostituire con chiave pubblica)
 function criptaMessaggio(messaggio, chiavePubblica) {
   const ciphertext = CryptoJS.AES.encrypt(messaggio, chiavePubblica).toString();
