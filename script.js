@@ -21,15 +21,16 @@ const publicKeyGeminiRSA = KJUR.crypto.KeyPair.genKeyPair('RSA', 2048).getPublic
 const privateKeyGeminiRSA = KJUR.crypto.KeyPair.genKeyPair('RSA', 2048).getPrivateKey();
 
 // Funzioni per la crittografia (esempio concettuale con AES - da sostituire con chiave pubblica)
-function criptaMessaggio(messaggio, chiavePubblica) {
-    const ciphertext = CryptoJS.AES.encrypt(messaggio, chiavePubblica).toString();
-    return ciphertext;
+function criptaMessaggio(messaggio, chiavePubblicaRSA) {
+  const jwk = KJUR.jws.JWS.readJWKPublicKey(chiavePubblicaRSA);
+  const encrypted = KJUR.crypto.Cipher.encrypt(messaggio, 'RSA', { jwk: jwk });
+  return encrypted;
 }
 
-function decriptaMessaggio(ciphertext, chiavePrivata) {
-    const bytes = CryptoJS.AES.decrypt(ciphertext, chiavePrivata);
-    const plaintext = bytes.toString(CryptoJS.enc.Utf8);
-    return plaintext;
+function decriptaMessaggio(ciphertext, chiavePrivataRSA) {
+  const key = KJUR.jws.JWS.readPKCS8PrivateKey(chiavePrivataRSA);
+  const decrypted = KJUR.crypto.Cipher.decrypt(ciphertext, 'RSA', { key: key });
+  return decrypted;
 }
 
 sendButton.addEventListener('click', sendMessage);
@@ -39,19 +40,7 @@ messageInput.addEventListener('keypress', function(event) {
     }
 });
 
-function sendMessage() {
-    const messageText = messageInput.value.trim();
-    if (messageText !== '') {
-        const encryptedText = criptaMessaggio(messageText, publicKeyGemini); // Cripta con la chiave pubblica di Gemini
-        displayMessage('Criptato (Tu): ' + encryptedText, 'my-message', myNickname); // Mostra il testo cifrato (per ora)
-        // Simulazione di invio e ricezione (senza server reale per ora)
-        setTimeout(() => {
-            const decryptedResponse = decriptaMessaggio(encryptedText, privateKeyGemini); // Simulo la decrittografia con la mia chiave privata
-            const responseText = generateFakeResponse(decryptedResponse); // Rispondo al messaggio decriptato
-            displayMessage(responseText, 'other-message', otherNickname);
-        }, 1000);
-        messageInput.value = '';
-    }
+
 }
 
 function displayMessage(text, className, sender) { // Ho aggiunto 'sender' qui
@@ -64,7 +53,25 @@ function displayMessage(text, className, sender) { // Ho aggiunto 'sender' qui
     messageDiv.appendChild(document.createTextNode(text));
     chatArea.appendChild(messageDiv);
     chatArea.scrollTop = chatArea.scrollHeight; // Scrolla in basso per mostrare l'ultimo messaggio
+function sendMessage() {
+    const messageText = messageInput.value.trim();
+    if (messageText !== '') {
+        const encryptedText = criptaMessaggio(messageText, publicKeyGeminiRSA); // Cripta con la chiave pubblica RSA di Gemini
+        displayMessage('Criptato (Tu): ' + encryptedText, 'my-message', myNickname); // Mostra il testo cifrato
+        setTimeout(() => {
+            try {
+                const decryptedResponse = decriptaMessaggio(encryptedText, privateKeyGeminiRSA); // Decripta con la chiave privata RSA di Gemini
+                const responseText = generateFakeResponse(decryptedResponse);
+                displayMessage(responseText, 'other-message', otherNickname);
+            } catch (error) {
+                console.error("Errore di decrittografia:", error);
+                displayMessage("Impossibile decriptare il messaggio!", 'other-message', otherNickname); // Mostra un messaggio di errore
+            }
+        }, 1000);
+        messageInput.value = '';
+    }
 }
+	
 
 function generateFakeResponse(inputText) {
     // Una semplice logica per generare risposte finte basate sull'input
