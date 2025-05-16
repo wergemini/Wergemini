@@ -41,9 +41,15 @@ messageInput.addEventListener('keypress', function(event) {
 function sendMessage() {
     const messageText = messageInput.value.trim();
     if (messageText !== '') {
-        displayMessage(messageText, 'my-message'); // Mostra il tuo messaggio
-        displayMessage('Ricevuto: ' + messageText, 'other-message'); // Simulo la mia risposta
-        messageInput.value = ''; // Pulisci il campo di input
+        const encryptedText = criptaMessaggio(messageText, publicKeyGemini); // Cripta con la chiave pubblica di Gemini
+        displayMessage('Criptato (Tu): ' + encryptedText, 'my-message', myNickname); // Mostra il testo cifrato (per ora)
+        // Simulazione di invio e ricezione (senza server reale per ora)
+        setTimeout(() => {
+            const decryptedResponse = decriptaMessaggio(encryptedText, privateKeyGemini); // Simulo la decrittografia con la mia chiave privata
+            const responseText = generateFakeResponse(decryptedResponse); // Rispondo al messaggio decriptato
+            displayMessage(responseText, 'other-message', otherNickname);
+        }, 1000);
+        messageInput.value = '';
     }
 }
 
