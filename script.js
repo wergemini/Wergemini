@@ -1,3 +1,4 @@
+
 import CryptoJS from 'crypto-js'; // Dovremo assicurarci che questa libreria sia inclusa nel nostro progetto web
 
 const chatArea = document.getElementById('chat-area');
@@ -16,13 +17,14 @@ const privateKeyGemini = 'chiaveprivatagemini012';
 // Funzioni per la crittografia (esempio concettuale con AES - da sostituire con chiave pubblica)
 function criptaMessaggio(messaggio, chiavePubblicaRSA) {
   const jwk = KJUR.jws.JWS.readJWKPublicKey(chiavePubblicaRSA);
-  const encrypted = KJUR.crypto.Cipher.encrypt(messaggio, 'RSA', { jwk: jwk });
+  const encrypted = CryptoJS.AES.encrypt(messaggio, chiavePubblicaRSA).toString();
   return encrypted;
 }
 
 function decriptaMessaggio(ciphertext, chiavePrivataRSA) {
   const key = KJUR.jws.JWS.readPKCS8PrivateKey(chiavePrivataRSA);
-  const decrypted = KJUR.crypto.Cipher.decrypt(ciphertext, 'RSA', { key: key });
+  const decrypted = CryptoJS.AES.decrypt(ciphertext, chiavePrivataRSA);
+  const plaintext = bytes.toString(CryptoJS.enc.Utf8);
   return decrypted;
 }
 
