@@ -63,16 +63,16 @@
         function sendMessage() {
             const messageText = messageInput.value.trim();
             if (messageText !== '') {
-                const encryptedText = criptaMessaggioRSA(messageText, publicKeyGemini); // Usa la chiave pubblica di Gemini
+                const encryptedText = criptaMessaggioRSA(messageText, publicKeyGemini); // Usa la chiave pubblica di Gemini per criptare
                 displayMessage('Tu (Criptato): ' + encryptedText, 'my-message', myNickname);
-                 setTimeout(() => {
+                setTimeout(() => {
                     try {
-                        const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);  // Usa la chiave privata di Gemini
+                        const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);  // Usa la chiave privata di Gemini per decriptare
                         const responseText = generateFakeResponse(decryptedResponse);
                         displayMessage('Gemini: ' + responseText, 'other-message', otherNickname);
                     } catch (error) {
-                         console.error("Errore di decrittografia:", error);
-                         displayMessage("Gemini: Impossibile decriptare il messaggio!", 'other-message', otherNickname);
+                        console.error("Errore di decrittografia:", error);
+                        displayMessage("Gemini: Impossibile decriptare il messaggio!", 'other-message', otherNickname);
                     }
                 }, 1000);
                 messageInput.value = '';
@@ -82,7 +82,7 @@
         // Questa funzione genera una risposta fittizia basata sul messaggio ricevuto.
         function generateFakeResponse(inputText) {
             inputText = inputText.toLowerCase();
-             if (inputText.includes('ciao') || inputText.includes('hey')) {
+            if (inputText.includes('ciao') || inputText.includes('hey')) {
                 return 'Ciao anche a te!';
             } else if (inputText.includes('come stai')) {
                 return 'Tutto bene, grazie!';
