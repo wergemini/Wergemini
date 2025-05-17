@@ -94,6 +94,27 @@
             }
         }
 
+        // Funzioni per la firma digitale
+        function generaFirma(messaggio, chiavePrivata) {
+            const signer = new KJUR.jws.JWS();
+            const sHeader = { alg: 'RS256' };
+            const sPayload = { data: messaggio };
+            const sKey = chiavePrivata;
+            const sSig = signer.sign('RS256', sHeader, sPayload, sKey);
+            return sSig;
+        }
+
+        function verificaFirma(messaggio, firma, chiavePubblica) {
+            try {
+                const verifier = new KJUR.jws.JWS();
+                const isValid = verifier.verify(firma, chiavePubblica, ['RS256']);
+                return isValid;
+            } catch (error) {
+                console.error("Errore nella verifica della firma:", error);
+                return false; // Considera la firma come non valida in caso di errore
+            }
+        }
+
         // Simulazione della comunicazione con il server
         const server = {
             users: {},
@@ -132,7 +153,7 @@
             if (!myNickname || myNickname.trim() === "") {
                 myNickname = "Anonimo";
             }
-            server.registerUser(myUserId, myNickname, publicKeyTu); // Registra l'utente sul server (simulato)
+            server.registerUser(myUserId, myNickname, publicKeyTu);
             addUserToList(myUserId, myNickname, publicKeyTu);
 
             //simula registrazione di gemini
@@ -159,16 +180,26 @@
                 const recipientKey = server.getUserPublicKey(recipientId);
                 const recipientNickname = server.getUserNickname(recipientId);
                 if (recipientKey) {
-                    const encryptedText = criptaMessaggioRSA(messageText, recipientKey);
+                    const firma = generaFirma(messageText, privateKeyTu); // Firma il messaggio
+                    const messaggioFirmato = {
+                        testo: messageText,
+                        firma: firma
+                    };
+                    const encryptedText = criptaMessaggioRSA(JSON.stringify(messaggioFirmato), recipientKey); // Invia oggetto firmato
                     displayMessage(myNickname + ' (Criptato): ' + encryptedText, 'my-message', myNickname);
                     setTimeout(() => {
                         try {
-                            const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini); //dovrebbe usare chiave privata del destinatario
-                            const responseText = generateFakeResponse(decryptedResponse);
-                            displayMessage(recipientNickname + ': ' + responseText, 'other-message', recipientNickname);
+                            const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);
+                            const messaggioRicevuto = JSON.parse(decryptedResponse);
+                            const firmaValida = verificaFirma(messaggioRicevuto.testo, messaggioRicevuto.firma, publicKeyTu); // Verifica la firma
+                            if (firmaValida) {
+                                displayMessage(recipientNickname + ': ' + messaggioRicevuto.testo, 'other-message', recipientNickname);
+                            } else {
+                                displayMessage(recipientNickname + ': Messaggio non valido (Firma non valida)', 'error-message', recipientNickname);
+                            }
                         } catch (error) {
                             console.error("Errore di decrittografia:", error);
-                            displayMessage("Impossibile decriptare il messaggio!", 'other-message', otherNickname);
+                            displayMessage("Gemini: Impossibile decriptare il messaggio!", 'other-message', otherNickname);
                         }
                     }, 1000);
                     messageInput.value = '';
@@ -204,7 +235,7 @@
 
         // Gestione disconnessione utente (simulata)
         window.addEventListener('beforeunload', () => {
-            server.removeUser(myUserId); // Rimuovi l'utente dal server (simulato)
+            server.removeUser(myUserId);
             removeUserFromList(myUserId);
         });
     </script>
