@@ -11,6 +11,11 @@
 <body>
     <div id="chat-area">
     </div>
+    <div id="user-list">
+        Utenti Online:
+        <ul id="online-users">
+        </ul>
+    </div>
     <div id="input-area">
         <input type="text" id="message-input" placeholder="Scrivi qui...">
         <button id="send-button">Invia</button>
@@ -20,15 +25,16 @@
         const chatArea = document.getElementById('chat-area');
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
+        const onlineUsersList = document.getElementById('online-users');
 
         // Definisce i nickname dei partecipanti alla chat
-        const myNickname = 'Tu';
-        const otherNickname = 'Gemini';
+        let myNickname = 'Tu'; // Inizialmente impostato a 'Tu', verrà cambiato al login
+        const users = {}; // Un oggetto per memorizzare le informazioni degli utenti (nickname, publicKey)
 
         // **ATTENZIONE: QUESTE CHIAVI SONO SOLO PER TEST E SONO INSECURE!**
         // Non usare mai chiavi private hardcoded in un'applicazione reale.
         // Dovrebbero essere generate sul server e gestite in modo sicuro.
-        const keyPairTu = KJUR.RSA.genKeyPair(2048);  // Genera una coppia di chiavi RSA a 2048 bit
+        const keyPairTu = KJUR.RSA.genKeyPair(2048);
         const publicKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.pubKeyObj);
         const privateKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.prvKeyObj, true);
 
@@ -49,6 +55,29 @@
             return cipher.getDecryptedString();
         }
 
+        // Funzione per generare un ID utente univoco
+        function generateUserId() {
+            return 'user-' + Math.random().toString(36).substring(2, 9);
+        }
+
+        // Funzione per aggiungere un utente alla lista degli utenti online
+        function addUserToList(userId, nickname, publicKey) {
+            users[userId] = { nickname: nickname, publicKey: publicKey };
+            const listItem = document.createElement('li');
+            listItem.textContent = nickname;
+            listItem.id = userId; // Aggiungi l'ID come ID dell'elemento lista
+            onlineUsersList.appendChild(listItem);
+        }
+
+        // Al momento del caricamento della pagina, simula il login dell'utente
+        const myUserId = generateUserId();
+        myNickname = prompt("Inserisci il tuo nickname:", "Tu"); // Permetti all'utente di scegliere il nickname
+        if (!myNickname || myNickname.trim() === "") {
+            myNickname = "Anonimo"; // Se l'utente non inserisce un nickname, usa "Anonimo"
+        }
+        addUserToList(myUserId, myNickname, publicKeyTu); // Aggiungi l'utente alla lista
+        addUserToList('gemini', 'Gemini', publicKeyGemini); // Aggiungi anche Gemini (simulato)
+
         // Aggiunge un listener per l'evento 'click' al bottone di invio del messaggio.
         sendButton.addEventListener('click', sendMessage);
 
@@ -63,13 +92,15 @@
         function sendMessage() {
             const messageText = messageInput.value.trim();
             if (messageText !== '') {
-                const encryptedText = criptaMessaggioRSA(messageText, publicKeyGemini); // Usa la chiave pubblica di Gemini per criptare
-                displayMessage('Tu (Criptato): ' + encryptedText, 'my-message', myNickname);
+                const recipientId = 'gemini'; // Per ora invia sempre a Gemini
+                const recipientKey = users[recipientId].publicKey;
+                const encryptedText = criptaMessaggioRSA(messageText, recipientKey);
+                displayMessage(myNickname + ' (Criptato): ' + encryptedText, 'my-message', myNickname);
                 setTimeout(() => {
                     try {
-                        const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);  // Usa la chiave privata di Gemini per decriptare
+                        const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);
                         const responseText = generateFakeResponse(decryptedResponse);
-                        displayMessage('Gemini: ' + responseText, 'other-message', otherNickname);
+                        displayMessage(otherNickname + ': ' + responseText, 'other-message', otherNickname);
                     } catch (error) {
                         console.error("Errore di decrittografia:", error);
                         displayMessage("Gemini: Impossibile decriptare il messaggio!", 'other-message', otherNickname);
