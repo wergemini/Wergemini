@@ -4,17 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Il Nostro Spazio Sicuro</title>
-    <link rel="stylesheet" 
-		href="style.css">
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsrsasign@10.8.6/lib/jsrsasign-all-min.js"></script>
 </head>
 <body>
     <div id="chat-area">
-        </div>
+    </div>
     <div id="input-area">
         <input type="text" id="message-input" placeholder="Scrivi qui...">
         <button id="send-button">Invia</button>
     </div>
-    <script src="script.js"></script>
+    <script>
+        // Ottiene riferimenti agli elementi HTML della chat
+        const chatArea = document.getElementById('chat-area');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+
+        // Definisce i nickname dei partecipanti alla chat
+        const myNickname = 'Tu';
+        const otherNickname = 'Gemini';
+
+        // **ATTENZIONE: QUESTE CHIAVI SONO SOLO PER TEST E SONO INSECURE!**
+        // Non usare mai chiavi private hardcoded in un'applicazione reale.
+        // Dovrebbero essere generate sul server e gestite in modo sicuro.
+        const keyPairTu = KJUR.RSA.genKeyPair(2048);  // Genera una coppia di chiavi RSA a 2048 bit
+        const publicKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.pubKeyObj);
+        const privateKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.prvKeyObj, true);
+
+        const keyPairGemini = KJUR.RSA.genKeyPair(2048);
+        const publicKeyGemini = KJUR.jrsasign.KEYUTIL.getPEM(keyPairGemini.pubKeyObj);
+        const privateKeyGemini = KJUR.jrsasign.KEYUTIL.getPEM(keyPairGemini.prvKeyObj, true);
+
+        // Funzioni per la crittografia e la decrittografia con RSA
+        function criptaMessaggioRSA(messaggio, chiavePubblica) {
+            const cipher = new KJUR.Cipher({ alg: 'RSA', key: chiavePubblica });
+            cipher.encrypt(messaggio);
+            return cipher.getEncryptedString();
+        }
+
+        function decriptaMessaggioRSA(ciphertext, chiavePrivata) {
+            const cipher = new KJUR.Cipher({ alg: 'RSA', key: chiavePrivata });
+            cipher.decrypt(ciphertext);
+            return cipher.getDecryptedString();
+        }
+
+        // Aggiunge un listener per l'evento 'click' al bottone di invio del messaggio.
+        sendButton.addEventListener('click', sendMessage);
+
+        // Aggiunge un listener per l'evento 'keypress' all'input del messaggio.
+        messageInput.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Questa funzione gestisce l'invio di un messaggio.
+        function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (messageText !== '') {
+                const encryptedText = criptaMessaggioRSA(messageText, publicKeyGemini); // Usa la chiave pubblica di Gemini
+                displayMessage('Tu (Criptato): ' + encryptedText, 'my-message', myNickname);
+                 setTimeout(() => {
+                    try {
+                        const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);  // Usa la chiave privata di Gemini
+                        const responseText = generateFakeResponse(decryptedResponse);
+                        displayMessage('Gemini: ' + responseText, 'other-message', otherNickname);
+                    } catch (error) {
+                         console.error("Errore di decrittografia:", error);
+                         displayMessage("Gemini: Impossibile decriptare il messaggio!", 'other-message', otherNickname);
+                    }
+                }, 1000);
+                messageInput.value = '';
+            }
+        }
+
+        // Questa funzione genera una risposta fittizia basata sul messaggio ricevuto.
+        function generateFakeResponse(inputText) {
+            inputText = inputText.toLowerCase();
+             if (inputText.includes('ciao') || inputText.includes('hey')) {
+                return 'Ciao anche a te!';
+            } else if (inputText.includes('come stai')) {
+                return 'Tutto bene, grazie!';
+            } else if (inputText.includes('amore')) {
+                return 'Ti voglio bene!';
+            } else {
+                return 'Ricevuto!';
+            }
+        }
+
+        //Questa funzione aggiunge un messaggio alla chat
+        function displayMessage(message, messageType, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            messageElement.classList.add(messageType);
+            messageElement.textContent = `${sender}: ${message}`;
+            chatArea.appendChild(messageElement);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+    </script>
 </body>
 </html>
