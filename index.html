@@ -43,6 +43,8 @@
         let publicKeyTu;
         let privateKeyTu;
 
+        // Costanti per il localStorage
+        const STORAGE_MESSAGES_KEY = 'chatMessages';
 
         // Funzioni per la crittografia e la decrittografia con RSA
         function criptaMessaggioRSA(messaggio, chiavePubblica) {
@@ -77,7 +79,6 @@
             if (userId !== myUserId) { // Non aggiungere se stesso come opzione
                 recipientSelect.appendChild(option);
             }
-
         }
 
         //funzione per rimuovere un utente dalla lista
@@ -142,6 +143,17 @@
             }
         };
 
+        // Funzioni per la gestione dei messaggi nel localStorage
+        function saveMessage(message) {
+            let messages = JSON.parse(localStorage.getItem(STORAGE_MESSAGES_KEY)) || [];
+            messages.push(message);
+            localStorage.setItem(STORAGE_MESSAGES_KEY, JSON.stringify(messages));
+        }
+
+        function loadMessages() {
+            return JSON.parse(localStorage.getItem(STORAGE_MESSAGES_KEY)) || [];
+        }
+
         // Al momento del caricamento della pagina, simula il login dell'utente
         window.addEventListener('load', () => {
             keyPairTu = KJUR.RSA.genKeyPair(2048);
@@ -160,6 +172,12 @@
             const geminiId = 'gemini';
             server.registerUser(geminiId, 'Gemini', publicKeyGemini);
             addUserToList(geminiId, 'Gemini', publicKeyGemini);
+
+            // Carica e visualizza i messaggi precedenti
+            const savedMessages = loadMessages();
+            savedMessages.forEach(message => {
+                displayMessage(message.text, message.type, message.sender);
+            });
         });
 
         // Aggiunge un listener per l'evento 'click' al bottone di invio del messaggio.
@@ -180,26 +198,50 @@
                 const recipientKey = server.getUserPublicKey(recipientId);
                 const recipientNickname = server.getUserNickname(recipientId);
                 if (recipientKey) {
-                    const firma = generaFirma(messageText, privateKeyTu); // Firma il messaggio
+                    const firma = generaFirma(messageText, privateKeyTu);
                     const messaggioFirmato = {
                         testo: messageText,
                         firma: firma
                     };
-                    const encryptedText = criptaMessaggioRSA(JSON.stringify(messaggioFirmato), recipientKey); // Invia oggetto firmato
-                    displayMessage(myNickname + ' (Criptato): ' + encryptedText, 'my-message', myNickname);
+                    const encryptedText = criptaMessaggioRSA(JSON.stringify(messaggioFirmato), recipientKey);
+                    const messageToSave = {
+                        text: myNickname + ' (Criptato): ' + encryptedText,
+                        type: 'my-message',
+                        sender: myNickname
+                    };
+                    saveMessage(messageToSave);
+                    displayMessage(messageToSave.text, messageToSave.type, messageToSave.sender);
                     setTimeout(() => {
                         try {
                             const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);
                             const messaggioRicevuto = JSON.parse(decryptedResponse);
-                            const firmaValida = verificaFirma(messaggioRicevuto.testo, messaggioRicevuto.firma, publicKeyTu); // Verifica la firma
+                            const firmaValida = verificaFirma(messaggioRicevuto.testo, messaggioRicevuto.firma, publicKeyTu);
                             if (firmaValida) {
-                                displayMessage(recipientNickname + ': ' + messaggioRicevuto.testo, 'other-message', recipientNickname);
+                                const responseMessage = {
+                                    text: recipientNickname + ': ' + messaggioRicevuto.testo,
+                                    type: 'other-message',
+                                    sender: recipientNickname
+                                };
+                                saveMessage(responseMessage);
+                                displayMessage(responseMessage.text, responseMessage.type, responseMessage.sender);
                             } else {
-                                displayMessage(recipientNickname + ': Messaggio non valido (Firma non valida)', 'error-message', recipientNickname);
+                                const errorMessage = {
+                                    text: recipientNickname + ': Messaggio non valido (Firma non valida)',
+                                    type: 'error-message',
+                                    sender: recipientNickname
+                                };
+                                saveMessage(errorMessage);
+                                displayMessage(errorMessage.text, errorMessage.type, errorMessage.sender);
                             }
                         } catch (error) {
                             console.error("Errore di decrittografia:", error);
-                            displayMessage("Gemini: Impossibile decriptare il messaggio!", 'other-message', otherNickname);
+                            const errorMessage = {
+                                  text: "Gemini: Impossibile decriptare il messaggio!",
+                                  type: 'other-message',
+                                  sender: otherNickname
+                            };
+                            saveMessage(errorMessage);
+                            displayMessage(errorMessage.text, errorMessage.type, errorMessage.sender);
                         }
                     }, 1000);
                     messageInput.value = '';
