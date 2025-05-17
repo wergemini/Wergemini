@@ -33,7 +33,7 @@
         // Definisce i nickname dei partecipanti alla chat
         let myNickname = 'Tu'; // Inizialmente impostato a 'Tu', verrà cambiato al login
         let myUserId = '';
-        const users = {}; // Un oggetto per memorizzare le informazioni degli utenti (userId, nickname, publicKey)
+        const users = {}; // Un oggetto per memorizzare le informazioni degli utenti (userId, nickname, publicKey, sessionId)
         const server = { users: {} }; // Simulazione del server
 
         // **ATTENZIONE: QUESTE CHIAVI SONO SOLO PER TEST E SONO INSECURE!**
@@ -66,7 +66,7 @@
 
         // Funzione per aggiungere un utente alla lista degli utenti online
         function addUserToList(userId, nickname, publicKey) {
-            users[userId] = { nickname: nickname, publicKey: publicKey };
+            users[userId] = { nickname: nickname, publicKey: publicKey, sessionId: null }; //aggiungo session ID
             const listItem = document.createElement('li');
             listItem.textContent = nickname;
             listItem.id = userId;
@@ -116,11 +116,21 @@
             }
         }
 
+        // Funzioni per la crittografia simmetrica (AES)
+        function criptaMessaggioAES(messaggio, chiave) {
+            return CryptoJS.AES.encrypt(messaggio, chiave).toString();
+        }
+
+        function decriptaMessaggioAES(ciphertext, chiave) {
+            const bytes = CryptoJS.AES.decrypt(ciphertext, chiave);
+            return bytes.toString(CryptoJS.enc.Utf8);
+        }
+
         // Simulazione della comunicazione con il server
         const server = {
             users: {},
             registerUser: function (userId, nickname, publicKey) {
-                this.users[userId] = { nickname: nickname, publicKey: publicKey };
+                this.users[userId] = { nickname: nickname, publicKey: publicKey, sessionId: null }; //aggiungo session ID
                 console.log(`Utente ${nickname} (ID: ${userId}) registrato con chiave pubblica: ${publicKey}`);
             },
             getUserPublicKey: function (userId) {
@@ -130,7 +140,7 @@
                     return null;
                 }
             },
-            getUserNickname: function(userId){
+             getUserNickname: function(userId){
                 if(this.users[userId]){
                     return this.users[userId].nickname;
                 }
@@ -140,6 +150,23 @@
             },
             removeUser: function(userId){
                 delete this.users[userId];
+            },
+            generateSessionId: function (userId) {
+                const sessionId = 'session-' + Math.random().toString(36).substring(2, 15);
+                this.users[userId].sessionId = sessionId;
+                return sessionId;
+            },
+            getSessionId: function (userId) {
+                return this.users[userId].sessionId;
+            },
+            storeSessionKey: function (userId, sessionId, sessionKey) {
+                this.users[userId].sessionKey = { id: sessionId, key: sessionKey };
+            },
+            getSessionKey: function (userId, sessionId) {
+                if (this.users[userId].sessionKey && this.users[userId].sessionKey.id === sessionId) {
+                    return this.users[userId].sessionKey.key;
+                }
+                return null;
             }
         };
 
@@ -198,42 +225,96 @@
                 const recipientKey = server.getUserPublicKey(recipientId);
                 const recipientNickname = server.getUserNickname(recipientId);
                 if (recipientKey) {
-                    const firma = generaFirma(messageText, privateKeyTu);
-                    const messaggioFirmato = {
-                        testo: messageText,
-                        firma: firma
+                    // E2EE: Genera chiave di sessione e criptala con la chiave pubblica del destinatario
+                    const sessionKey = CryptoJS.lib.WordArray.random(32).toString(); // Chiave AES a 256 bit
+                    const encryptedSessionKey = criptaMessaggioRSA(sessionKey, recipientKey);
+
+                    // Firma la chiave di sessione criptata
+                    const signedEncryptedSessionKey = generaFirma(encryptedSessionKey, privateKeyTu);
+
+                    // Invia la chiave di sessione criptata e firmata al destinatario
+                    const sessionKeyMessage = {
+                        type: 'sessionKey',
+                        sender: myUserId,
+                        recipient: recipientId,
+                        encryptedSessionKey: encryptedSessionKey,
+                        signedEncryptedSessionKey: signedEncryptedSessionKey
                     };
-                    const encryptedText = criptaMessaggioRSA(JSON.stringify(messaggioFirmato), recipientKey);
+
+                    // Invia anche il session ID
+                    const sessionId = server.generateSessionId(myUserId);
+
+                    // Cripta il messaggio con la chiave di sessione AES
+                    const encryptedMessage = criptaMessaggioAES(messageText, sessionKey);
+                    const signedEncryptedMessage = generaFirma(encryptedMessage, privateKeyTu);
+
+                    // Invia il messaggio criptato e firmato
+                    const messageToSend = {
+                        type: 'message',
+                        sender: myUserId,
+                        recipient: recipientId,
+                        sessionId: sessionId,
+                        encryptedMessage: encryptedMessage,
+                        signedEncryptedMessage: signedEncryptedMessage
+                    };
+
                     const messageToSave = {
-                        text: myNickname + ' (Criptato): ' + encryptedText,
+                        text: myNickname + ' (Criptato): ' + encryptedMessage,
                         type: 'my-message',
                         sender: myNickname
                     };
                     saveMessage(messageToSave);
                     displayMessage(messageToSave.text, messageToSave.type, messageToSave.sender);
+
+                    // Simula la ricezione e la decrittazione del messaggio da parte del destinatario
                     setTimeout(() => {
-                        try {
-                            const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);
-                            const messaggioRicevuto = JSON.parse(decryptedResponse);
-                            const firmaValida = verificaFirma(messaggioRicevuto.testo, messaggioRicevuto.firma, publicKeyTu);
-                            if (firmaValida) {
+                        // Simula la ricezione della chiave di sessione
+                        try{
+                            const sessionKeyResponse = {
+                                encryptedSessionKey: encryptedSessionKey,
+                                signedEncryptedSessionKey: signedEncryptedSessionKey
+                            };
+                            const isSessionKeySignatureValid = verificaFirma(sessionKeyResponse.encryptedSessionKey, sessionKeyResponse.signedEncryptedSessionKey, publicKeyTu);
+                            if(!isSessionKeySignatureValid){
+                                 const errorMessage = {
+                                        text: recipientNickname + ': Chiave di sessione non valida.',
+                                        type: 'error-message',
+                                        sender: recipientNickname
+                                    };
+                                    saveMessage(errorMessage);
+                                    displayMessage(errorMessage.text, errorMessage.type, errorMessage.sender);
+                                    return;
+                            }
+                            const decryptedSessionKey = decriptaMessaggioRSA(sessionKeyResponse.encryptedSessionKey, privateKeyGemini);
+                            server.storeSessionKey(recipientId, sessionId, decryptedSessionKey); //salva la session key
+
+                            //simula ricezione messaggio
+                            const receivedMessage = {
+                                encryptedMessage: encryptedMessage,
+                                signedEncryptedMessage: signedEncryptedMessage
+                            };
+
+                            const isMessageSignatureValid = verificaFirma(receivedMessage.encryptedMessage, receivedMessage.signedEncryptedMessage, publicKeyTu);
+                            if (isMessageSignatureValid) {
+                                const decryptedText = decriptaMessaggioAES(receivedMessage.encryptedMessage, decryptedSessionKey);
                                 const responseMessage = {
-                                    text: recipientNickname + ': ' + messaggioRicevuto.testo,
-                                    type: 'other-message',
-                                    sender: recipientNickname
-                                };
+                                        text: recipientNickname + ': ' + decryptedText,
+                                        type: 'other-message',
+                                        sender: recipientNickname
+                                    };
                                 saveMessage(responseMessage);
                                 displayMessage(responseMessage.text, responseMessage.type, responseMessage.sender);
                             } else {
-                                const errorMessage = {
-                                    text: recipientNickname + ': Messaggio non valido (Firma non valida)',
-                                    type: 'error-message',
-                                    sender: recipientNickname
-                                };
-                                saveMessage(errorMessage);
-                                displayMessage(errorMessage.text, errorMessage.type, errorMessage.sender);
+                                 const errorMessage = {
+                                        text: recipientNickname + ': Messaggio non valido (Firma non valida)',
+                                        type: 'error-message',
+                                        sender: recipientNickname
+                                    };
+                                    saveMessage(errorMessage);
+                                    displayMessage(errorMessage.text, errorMessage.type, errorMessage.sender);
                             }
-                        } catch (error) {
+                        }
+                        catch(error){
                             console.error("Errore di decrittografia:", error);
                             const errorMessage = {
                                   text: "Gemini: Impossibile decriptare il messaggio!",
