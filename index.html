@@ -17,6 +17,8 @@
         </ul>
     </div>
     <div id="input-area">
+        <select id="recipient-select">
+        </select>
         <input type="text" id="message-input" placeholder="Scrivi qui...">
         <button id="send-button">Invia</button>
     </div>
@@ -26,21 +28,21 @@
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
         const onlineUsersList = document.getElementById('online-users');
+        const recipientSelect = document.getElementById('recipient-select');
 
         // Definisce i nickname dei partecipanti alla chat
         let myNickname = 'Tu'; // Inizialmente impostato a 'Tu', verrà cambiato al login
-        const users = {}; // Un oggetto per memorizzare le informazioni degli utenti (nickname, publicKey)
+        let myUserId = '';
+        const users = {}; // Un oggetto per memorizzare le informazioni degli utenti (userId, nickname, publicKey)
+        const server = { users: {} }; // Simulazione del server
 
         // **ATTENZIONE: QUESTE CHIAVI SONO SOLO PER TEST E SONO INSECURE!**
         // Non usare mai chiavi private hardcoded in un'applicazione reale.
         // Dovrebbero essere generate sul server e gestite in modo sicuro.
-        const keyPairTu = KJUR.RSA.genKeyPair(2048);
-        const publicKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.pubKeyObj);
-        const privateKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.prvKeyObj, true);
+        let keyPairTu;
+        let publicKeyTu;
+        let privateKeyTu;
 
-        const keyPairGemini = KJUR.RSA.genKeyPair(2048);
-        const publicKeyGemini = KJUR.jrsasign.KEYUTIL.getPEM(keyPairGemini.pubKeyObj);
-        const privateKeyGemini = KJUR.jrsasign.KEYUTIL.getPEM(keyPairGemini.prvKeyObj, true);
 
         // Funzioni per la crittografia e la decrittografia con RSA
         function criptaMessaggioRSA(messaggio, chiavePubblica) {
@@ -65,18 +67,79 @@
             users[userId] = { nickname: nickname, publicKey: publicKey };
             const listItem = document.createElement('li');
             listItem.textContent = nickname;
-            listItem.id = userId; // Aggiungi l'ID come ID dell'elemento lista
+            listItem.id = userId;
             onlineUsersList.appendChild(listItem);
+
+             // Aggiungi l'opzione alla select
+            const option = document.createElement('option');
+            option.value = userId;
+            option.textContent = nickname;
+            if (userId !== myUserId) { // Non aggiungere se stesso come opzione
+                recipientSelect.appendChild(option);
+            }
+
         }
 
-        // Al momento del caricamento della pagina, simula il login dell'utente
-        const myUserId = generateUserId();
-        myNickname = prompt("Inserisci il tuo nickname:", "Tu"); // Permetti all'utente di scegliere il nickname
-        if (!myNickname || myNickname.trim() === "") {
-            myNickname = "Anonimo"; // Se l'utente non inserisce un nickname, usa "Anonimo"
+        //funzione per rimuovere un utente dalla lista
+        function removeUserFromList(userId) {
+            delete users[userId];
+            const listItem = document.getElementById(userId);
+            if (listItem) {
+                listItem.remove();
+            }
+            // Remove option from select
+            const optionToRemove = recipientSelect.querySelector(`[value="${userId}"]`);
+            if (optionToRemove) {
+                recipientSelect.removeChild(optionToRemove);
+            }
         }
-        addUserToList(myUserId, myNickname, publicKeyTu); // Aggiungi l'utente alla lista
-        addUserToList('gemini', 'Gemini', publicKeyGemini); // Aggiungi anche Gemini (simulato)
+
+        // Simulazione della comunicazione con il server
+        const server = {
+            users: {},
+            registerUser: function (userId, nickname, publicKey) {
+                this.users[userId] = { nickname: nickname, publicKey: publicKey };
+                console.log(`Utente ${nickname} (ID: ${userId}) registrato con chiave pubblica: ${publicKey}`);
+            },
+            getUserPublicKey: function (userId) {
+                if (this.users[userId]) {
+                    return this.users[userId].publicKey;
+                } else {
+                    return null;
+                }
+            },
+            getUserNickname: function(userId){
+                if(this.users[userId]){
+                    return this.users[userId].nickname;
+                }
+                else{
+                    return null;
+                }
+            },
+            removeUser: function(userId){
+                delete this.users[userId];
+            }
+        };
+
+        // Al momento del caricamento della pagina, simula il login dell'utente
+        window.addEventListener('load', () => {
+            keyPairTu = KJUR.RSA.genKeyPair(2048);
+            publicKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.pubKeyObj);
+            privateKeyTu = KJUR.jrsasign.KEYUTIL.getPEM(keyPairTu.prvKeyObj, true);
+
+            myUserId = generateUserId();
+            myNickname = prompt("Inserisci il tuo nickname:", "Tu");
+            if (!myNickname || myNickname.trim() === "") {
+                myNickname = "Anonimo";
+            }
+            server.registerUser(myUserId, myNickname, publicKeyTu); // Registra l'utente sul server (simulato)
+            addUserToList(myUserId, myNickname, publicKeyTu);
+
+            //simula registrazione di gemini
+            const geminiId = 'gemini';
+            server.registerUser(geminiId, 'Gemini', publicKeyGemini);
+            addUserToList(geminiId, 'Gemini', publicKeyGemini);
+        });
 
         // Aggiunge un listener per l'evento 'click' al bottone di invio del messaggio.
         sendButton.addEventListener('click', sendMessage);
@@ -91,22 +154,27 @@
         // Questa funzione gestisce l'invio di un messaggio.
         function sendMessage() {
             const messageText = messageInput.value.trim();
+            const recipientId = recipientSelect.value;
             if (messageText !== '') {
-                const recipientId = 'gemini'; // Per ora invia sempre a Gemini
-                const recipientKey = users[recipientId].publicKey;
-                const encryptedText = criptaMessaggioRSA(messageText, recipientKey);
-                displayMessage(myNickname + ' (Criptato): ' + encryptedText, 'my-message', myNickname);
-                setTimeout(() => {
-                    try {
-                        const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini);
-                        const responseText = generateFakeResponse(decryptedResponse);
-                        displayMessage(otherNickname + ': ' + responseText, 'other-message', otherNickname);
-                    } catch (error) {
-                        console.error("Errore di decrittografia:", error);
-                        displayMessage("Gemini: Impossibile decriptare il messaggio!", 'other-message', otherNickname);
-                    }
-                }, 1000);
-                messageInput.value = '';
+                const recipientKey = server.getUserPublicKey(recipientId);
+                const recipientNickname = server.getUserNickname(recipientId);
+                if (recipientKey) {
+                    const encryptedText = criptaMessaggioRSA(messageText, recipientKey);
+                    displayMessage(myNickname + ' (Criptato): ' + encryptedText, 'my-message', myNickname);
+                    setTimeout(() => {
+                        try {
+                            const decryptedResponse = decriptaMessaggioRSA(encryptedText, privateKeyGemini); //dovrebbe usare chiave privata del destinatario
+                            const responseText = generateFakeResponse(decryptedResponse);
+                            displayMessage(recipientNickname + ': ' + responseText, 'other-message', recipientNickname);
+                        } catch (error) {
+                            console.error("Errore di decrittografia:", error);
+                            displayMessage("Impossibile decriptare il messaggio!", 'other-message', otherNickname);
+                        }
+                    }, 1000);
+                    messageInput.value = '';
+                } else {
+                    alert('Destinatario non trovato!');
+                }
             }
         }
 
@@ -133,6 +201,12 @@
             chatArea.appendChild(messageElement);
             chatArea.scrollTop = chatArea.scrollHeight;
         }
+
+        // Gestione disconnessione utente (simulata)
+        window.addEventListener('beforeunload', () => {
+            server.removeUser(myUserId); // Rimuovi l'utente dal server (simulato)
+            removeUserFromList(myUserId);
+        });
     </script>
 </body>
 </html>
