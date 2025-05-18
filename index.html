@@ -7,6 +7,16 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsrsasign@10.8.6/lib/jsrsasign-all-min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+    <style>
+      emoji-picker {
+        position: absolute;
+        bottom: 50px;
+        left: 10px;
+        z-index: 10;
+      }
+    </style>
 </head>
 <body>
     <div id="chat-area">
@@ -21,6 +31,8 @@
         </select>
         <input type="text" id="message-input" placeholder="Scrivi qui...">
         <button id="send-button">Invia</button>
+        <button id="emoji-button">Emoji</button>
+        <emoji-picker id="emoji-picker"></emoji-picker>
     </div>
     <script>
         // Ottiene riferimenti agli elementi HTML della chat
@@ -29,6 +41,9 @@
         const sendButton = document.getElementById('send-button');
         const onlineUsersList = document.getElementById('online-users');
         const recipientSelect = document.getElementById('recipient-select');
+        const emojiButton = document.getElementById('emoji-button');
+        const emojiPicker = document.getElementById('emoji-picker');
+
 
         // Definisce i nickname dei partecipanti alla chat
         let myNickname = 'Tu'; // Inizialmente impostato a 'Tu', verrà cambiato al login
@@ -205,6 +220,16 @@
             savedMessages.forEach(message => {
                 displayMessage(message.text, message.type, message.sender);
             });
+
+            // Inizializza l'emoji picker
+            emojiPicker.addEventListener('emoji-click', (event) => {
+                messageInput.value += event.detail.unicode;
+                emojiPicker.style.display = 'none';
+            });
+
+            emojiButton.addEventListener('click', () => {
+                emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'block' : 'none';
+            });
         });
 
         // Aggiunge un listener per l'evento 'click' al bottone di invio del messaggio.
@@ -326,6 +351,7 @@
                         }
                     }, 1000);
                     messageInput.value = '';
+                    emojiPicker.style.display = 'none';
                 } else {
                     alert('Destinatario non trovato!');
                 }
